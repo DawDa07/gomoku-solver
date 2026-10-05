@@ -1,1 +1,1 @@
-# gomoku_solver
+# gomoku solver
