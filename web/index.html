@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gomoku</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='5.5' cy='8' r='3.2' fill='%23111'/%3E%3Ccircle cx='11' cy='8' r='3.2' fill='%23fff' stroke='%23111' stroke-width='0.6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Gomoku</h1>
+      <p>Play the search bot or the learned bot, or set up a position and ask for the best next move.</p>
+    </header>
+    <div class="layout">
+      <div class="board-column">
+        <div class="coords">
+          <div class="cols" id="cols"></div>
+          <div class="mid">
+            <div class="rows" id="rows"></div>
+            <div class="board" id="board" role="grid" aria-label="Gomoku board"></div>
+          </div>
+        </div>
+        <p class="legend">Five or more in a row wins. Columns A–O, rows 1–15 from the top. A red dot marks the last stone.</p>
+      </div>
+      <aside class="panel">
+        <div class="segment" role="group" aria-label="Mode">
+          <button type="button" id="mode-play" aria-pressed="true">Play</button>
+          <button type="button" id="mode-analyze" aria-pressed="false">Analyze</button>
+        </div>
+
+        <section>
+          <h2>Opponent</h2>
+          <div class="segment" role="group" aria-label="Opponent">
+            <button type="button" id="engine-base" aria-pressed="true">Base</button>
+            <button type="button" id="engine-learned" aria-pressed="false">Learned</button>
+          </div>
+          <p class="hint">Base is the search. Learned trained against that search on a 9×9 board, then against itself, and plays here on 15×15. Both take a win and block a loss immediately.</p>
+        </section>
+
+        <section id="play-panel">
+          <h2>You play</h2>
+          <div class="segment" role="group" aria-label="Your color">
+            <button type="button" id="play-black" aria-pressed="true"><i class="mini black"></i>Black</button>
+            <button type="button" id="play-white" aria-pressed="false"><i class="mini white"></i>White</button>
+          </div>
+          <p class="hint">Choosing a color starts a new game. Black opens.</p>
+        </section>
+
+        <section id="analyze-panel" hidden>
+          <h2>Placing</h2>
+          <div class="segment" role="group" aria-label="Color to place">
+            <button type="button" id="paint-black" aria-pressed="true"><i class="mini black"></i>Black</button>
+            <button type="button" id="paint-white" aria-pressed="false"><i class="mini white"></i>White</button>
+          </div>
+          <h2>Side to move</h2>
+          <div class="segment" role="group" aria-label="Side to move">
+            <button type="button" id="side-black" aria-pressed="true"><i class="mini black"></i>Black</button>
+            <button type="button" id="side-white" aria-pressed="false"><i class="mini white"></i>White</button>
+          </div>
+          <p class="hint">Clicks add the color you are placing. They do not change whose turn it is.</p>
+          <button type="button" class="primary" id="find">Best move</button>
+        </section>
+
+        <p class="turn" id="turn"></p>
+        <p class="status" id="status">Loading…</p>
+        <button type="button" class="primary" id="bot" hidden>Let the bot move</button>
+        <div class="actions">
+          <button type="button" id="undo">Undo</button>
+          <button type="button" id="reset">Reset</button>
+        </div>
+      </aside>
+    </div>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
