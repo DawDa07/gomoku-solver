@@ -1,7 +1,8 @@
-"""Time-limited alpha-beta search over the pattern evaluator.
+"""Threat tactics first, then a time-limited alpha-beta search.
 
-Immediate wins and blocks are answered before any search, so a one-move
-tactic is never missed because the clock ran out.
+`find_tactic` settles positions decided by threats: wins, blocks, open fours,
+forced fours, double threats, and open threes that must be stopped. When it
+allows several safe replies, alpha-beta chooses among only those.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from dataclasses import dataclass
 
 from engine.board import BLACK, Board, opponent, square_name
 from engine.evaluate import WIN_SCORE, evaluate
+from engine.tactics import find_tactic
 
 MAX_DEPTH = 4
 DEFAULT_TIME_LIMIT = 1.0
@@ -45,62 +47,28 @@ def best_move(
     if board.winner or not candidates:
         return None
 
-    own_wins = _winning_squares(board, side_to_move)
-    if own_wins:
-        row, col = own_wins[0]
-        return SearchResult(row, col, WIN_SCORE, [(row, col)], "Takes the win.")
-
-    blocks = _winning_squares(board, opponent(side_to_move))
-    if len(blocks) == 1:
-        row, col = blocks[0]
-        return SearchResult(row, col, 0, [(row, col)], "Blocks the opponent's win.")
-    if len(blocks) > 1:
-        row, col = blocks[0]
-        return SearchResult(
-            row,
-            col,
-            -WIN_SCORE,
-            [(row, col)],
-            "Opponent has two winning moves. Blocking one of them.",
-        )
-
-    if len(candidates) == 1:
-        row, col = candidates[0]
-        board.place(row, col, side_to_move)
-        try:
-            score = _perspective(board, side_to_move)
-        finally:
-            board.undo()
-        return SearchResult(row, col, score, [(row, col)], _search_reason(score, [(row, col)]))
-
     deadline = time.perf_counter() + time_limit
-    fallback = _ordered(board, side_to_move)
+    tactic = find_tactic(board, side_to_move)
+    if tactic is not None and len(tactic.moves) == 1:
+        row, col = tactic.moves[0]
+        line = list(tactic.line) or [(row, col)]
+        return SearchResult(row, col, tactic.score, line, tactic.reason)
+
+    roots = list(tactic.moves) if tactic is not None else candidates
+    prefix = f"{tactic.reason} " if tactic is not None else ""
     best: SearchResult | None = None
     for depth in range(1, max_depth + 1):
         try:
-            row, col, score, line = _search_root(board, side_to_move, depth, deadline)
+            row, col, score, line = _search_root(board, side_to_move, depth, deadline, roots)
         except _Timeout:
             break
-        best = SearchResult(row, col, score, line, _search_reason(score, line))
+        best = SearchResult(row, col, score, line, prefix + _search_reason(score, line))
         if abs(score) >= WIN_SCORE - MAX_DEPTH:
             break
     if best is not None:
         return best
-    if not fallback:
-        return None
-    row, col = fallback[0]
-    return SearchResult(row, col, 0, [(row, col)], _search_reason(0, [(row, col)]))
-
-
-def _winning_squares(board: Board, player: int) -> list[tuple[int, int]]:
-    found: list[tuple[int, int]] = []
-    for row, col in board.legal_moves():
-        board.place(row, col, player)
-        won = board.winner == player
-        board.undo()
-        if won:
-            found.append((row, col))
-    return sorted(found)
+    row, col = _ordered(board, side_to_move, roots)[0]
+    return SearchResult(row, col, 0, [(row, col)], prefix + _search_reason(0, [(row, col)]))
 
 
 def _search_reason(score: int, line: list[tuple[int, int]]) -> str:
@@ -117,9 +85,10 @@ def _search_root(
     side: int,
     depth: int,
     deadline: float,
+    roots: list[tuple[int, int]],
 ) -> tuple[int, int, int, list[tuple[int, int]]]:
     _check(deadline)
-    moves = _ordered(board, side)
+    moves = _ordered(board, side, roots)
     best_score = -_INF
     best_row, best_col = moves[0]
     best_line = [moves[0]]
@@ -209,10 +178,10 @@ def _move_key(board: Board, move: tuple[int, int]) -> tuple[int, int, int, int]:
     return (near, center, move[0], move[1])
 
 
-def _ordered(board: Board, side: int) -> list[tuple[int, int]]:
+def _ordered(board: Board, side: int, moves: list[tuple[int, int]]) -> list[tuple[int, int]]:
     ranked: list[tuple[int, int, int, int]] = []
     mid = board.size // 2
-    for row, col in board.legal_moves():
+    for row, col in moves:
         board.place(row, col, side)
         try:
             score = _perspective(board, side)

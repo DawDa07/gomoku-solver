@@ -2,15 +2,20 @@
 
 The network plays the games. At every position the base search says what it
 would have played, and that move is the policy target. The value target is
-who eventually won. 9×9 is the main lesson; the same weights then play 15×15.
+who eventually won. Every game starts from a few random stones near the
+center, so the base does not replay the same game.
 
-Run from the project directory:
+Training continues from models/learned.pt when it exists. From the project
+directory:
 
-    python train.py
+    python train.py           # continue from the saved weights
+    python train.py --fresh   # start from random weights
 """
 
 from __future__ import annotations
 
+import argparse
+import random
 import time
 
 import numpy as np
@@ -19,7 +24,7 @@ from torch import nn
 
 from engine.board import BLACK, WHITE, Board
 from engine.learned import select_action
-from engine.net import PolicyValueNet, encode, save_checkpoint
+from engine.net import PolicyValueNet, encode, load_checkpoint, save_checkpoint
 from engine.search import best_move
 
 # name, size, mode, games, epochs, learning rate
@@ -32,13 +37,23 @@ PHASES = [
 BASE_DEPTH = 2
 BASE_TIME = 0.1
 BATCH = 64
+EVAL_OPENINGS = 6
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--fresh", action="store_true", help="start from random weights")
+    args = parser.parse_args()
     torch.manual_seed(1)
     np.random.seed(1)
+    random.seed(1)
     torch.set_num_threads(4)
-    net = PolicyValueNet()
+    net = None if args.fresh else load_checkpoint(torch.device("cpu"))
+    if net is None:
+        print("Starting from random weights.", flush=True)
+        net = PolicyValueNet()
+    else:
+        print("Continuing from models/learned.pt.", flush=True)
     opt = torch.optim.AdamW(net.parameters(), lr=PHASES[0][5], weight_decay=0.0)
     started = time.perf_counter()
     for name, size, mode, games, epochs, lr in PHASES:
@@ -74,8 +89,22 @@ def collect(net, size, mode, games):
     return samples
 
 
-def play_game(net, size, mode, learner):
+def opening(size, rng, stones):
+    """A board with `stones` random moves within two of the center."""
     board = Board(size=size)
+    mid = size // 2
+    side = BLACK
+    while len(board.history) < stones:
+        row = mid + rng.randint(-2, 2)
+        col = mid + rng.randint(-2, 2)
+        if board.get(row, col) == 0:
+            board.place(row, col, side)
+            side = WHITE if side == BLACK else BLACK
+    return board
+
+
+def play_game(net, size, mode, learner):
+    board = opening(size, random, random.randint(1, 4))
     played = []
     while not board.winner and not board.is_full() and board.legal_moves():
         side = BLACK if len(board.history) % 2 == 0 else WHITE
@@ -158,9 +187,9 @@ def evaluate(net):
     wins = losses = draws = 0
     same = 0
     turns = 0
-    for game in range(8):
+    for game in range(2 * EVAL_OPENINGS):
         learner = BLACK if game % 2 == 0 else WHITE
-        board = Board(size=15)
+        board = opening(15, random.Random(game // 2), 3)
         while not board.winner and not board.is_full() and board.legal_moves():
             side = BLACK if len(board.history) % 2 == 0 else WHITE
             teacher = best_move(board, side, time_limit=BASE_TIME, max_depth=BASE_DEPTH)

@@ -23,10 +23,11 @@ Tests:
 pytest
 ```
 
-Retrain the learned bot (a few minutes on a laptop):
+Train the learned bot (about eight minutes on a laptop). It continues from the saved weights; `--fresh` starts over:
 
 ```bash
 python train.py
+python train.py --fresh
 ```
 
 Restart the server after a retrain so it loads the new weights.
@@ -35,8 +36,8 @@ Restart the server after a retrain so it loads the new weights.
 
 Choose Black or White, and choose the opponent.
 
-- **Base** is the search bot. It looks about a second ahead.
-- **Learned** is a small convolutional network. It trained by playing the base bot, then by playing itself. Immediate wins and blocks still come from the rules, so a one-move tactic is not left to the network.
+- **Base** is a threat checker plus a search. It blocks open threes and broken threes, plays forced fours, and looks about a second ahead.
+- **Learned** is a small convolutional network. It trained by playing the base bot, then by playing itself. It uses the same threat checks, so wins, blocks, and forced sequences are not left to the network.
 
 Black opens. A red dot marks the last stone. Undo takes back your move and the bot's reply. Reset starts over.
 
@@ -50,13 +51,25 @@ The suggested square is drawn as a faded stone with a green ring. For the base b
 
 Both modes call one function and get back a move, a score, and a reason.
 
-The base bot takes a win in one move, and blocks an immediate loss, before it searches. Otherwise it runs alpha-beta for about a second, looking only at empty cells within two intersections of a stone. The score comes from patterns on the four directions: open fours, closed fours, open threes, and smaller shapes.
+Shapes are read from five-cell windows: every run of five cells along a row, column, or diagonal. Counting one color's stones in a window finds solid and broken shapes alike, so `.XX.X.` is seen as a three, the same as `.XXX.`.
 
-The learned bot is a policy and value network. The input is three planes (own stones, opponent stones, and a constant), from the side about to move. Residual convolutions see the whole board, so weights trained on 9×9 still play on 15×15. Training starts on 9×9 because a full-size game is slow to repeat. In each position the base search names the move to imitate, and the value target is who won the game. The network then plays the base and plays itself, while the search keeps labeling the moves.
+The base bot checks threats first, in this order ([`engine/tactics.py`](engine/tactics.py)):
 
-15×15 freestyle Gomoku is a known win for Black with perfect play. That proof is a search result, not something this network has learned. The learned bot is there to study that loop: play the current best policy, label the positions, and train again. It is not a perfect player.
+1. Make five.
+2. Block the opponent's four.
+3. Make an open four, which has two ways to become five.
+4. Win by continuous fours: keep making fours, each with one forced block, until a double four or an open four.
+5. Make a double threat that one reply cannot stop, directly or after a four.
+6. Block the opponent's open three, broken three, or forced fours. Prefer blocks that do not leave them a double threat next move.
+7. Take away a double threat the opponent is about to play.
+
+If a check leaves one move, that move is played. If it leaves several safe blocks, alpha-beta chooses among them. In a quiet position, alpha-beta runs for about a second over empty cells within two intersections of a stone, scored by the windows: more stones of one color in an open window is worth more.
+
+The learned bot is a policy and value network. The input is three planes (own stones, opponent stones, and a constant), from the side about to move. Residual convolutions see the whole board, so weights trained on 9×9 still play on 15×15. It uses the same threat checks; the network chooses quiet moves, and chooses among safe blocks. In training, the base names the move to imitate in each position, and the value target is who won the game. Games start from random stones near the center, then the network plays the base and plays itself while the base keeps labeling the moves.
+
+15×15 freestyle Gomoku is a known win for Black with perfect play. That proof is a large search, not something these bots do. They still lose to longer forcing lines: a chain of threes and fours several moves deep.
 
 ## What comes next
 
-1. **Threat search.** A forcing search that keeps giving check solves sharp positions the pattern search still misses. That is the step that moves toward "does not lose."
-2. **FPGA.** The hot loop, in the pattern score and in the network, is sliding a window along rows, columns, and diagonals. The pattern score reads only the stones on the board, so an accelerator can take a board and return scores without the page knowing.
+1. **Deeper threat search.** Search chains of threes as well as fours (victory by continuous threats), with a time budget. That is the step that moves toward "does not lose."
+2. **FPGA.** The hot loop, in the window scan and in the network, is sliding a window along rows, columns, and diagonals. The window scan reads only the stones on the board, so an accelerator can take a board and return counts without the page knowing.

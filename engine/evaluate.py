@@ -1,24 +1,24 @@
-"""Pattern scores for a freestyle Gomoku position.
+"""Pattern score for a freestyle Gomoku position.
 
-`evaluate` reads only the stones on the board (and the win that follows from
-them). It does not depend on move history, which is the seam a later FPGA
+Every five-cell window that holds stones of only one color scores for that
+color, by how many stones it holds. A solid three and a broken three (XX.X)
+both fill windows with three stones, so both count.
+
+`evaluate` reads only the stones on the board. That is the seam a later FPGA
 accelerator can sit behind: board in, score out.
 """
 
 from __future__ import annotations
 
-from engine.board import BLACK, DIRECTIONS, EMPTY, WHITE, Board
+from functools import lru_cache
 
-# Tuned so one forcing pattern outranks a pile of quiet shapes, and a
-# finished five outranks every threat. Two open fours add up, so a double
-# threat beats a single one.
-FIVE = 100_000
-OPEN_FOUR = 50_000
-CLOSED_FOUR = 8_000
-OPEN_THREE = 3_000
-CLOSED_THREE = 400
-OPEN_TWO = 80
-CLOSED_TWO = 15
+import numpy as np
+
+from engine.board import BLACK, WHITE, Board
+from engine.threats import window_index
+
+# Points for a window holding 0 to 5 stones of one color and none of the other.
+WINDOW = np.array([0, 1, 12, 150, 2_500, 0], dtype=np.int64)
 
 WIN_SCORE = 1_000_000
 
@@ -29,60 +29,20 @@ def evaluate(board: Board) -> int:
         return WIN_SCORE
     if board.winner == WHITE:
         return -WIN_SCORE
-    return _pattern_score(board, BLACK) - _pattern_score(board, WHITE) + _center(board)
+    cells = np.asarray(board.cells, dtype=np.int8)
+    values = cells[window_index(board.size)]
+    black = (values == BLACK).sum(axis=1)
+    white = (values == WHITE).sum(axis=1)
+    score = WINDOW[black][white == 0].sum() - WINDOW[white][black == 0].sum()
+    stones = (cells == BLACK).astype(np.int64) - (cells == WHITE)
+    return int(score + (_center(board.size) * stones).sum())
 
 
-def _pattern_score(board: Board, player: int) -> int:
-    total = 0
-    cells = board.cells
-    size = board.size
-    for row in range(size):
-        for col in range(size):
-            if cells[row * size + col] != player:
-                continue
-            for dr, dc in DIRECTIONS:
-                pr, pc = row - dr, col - dc
-                if board.in_bounds(pr, pc) and cells[pr * size + pc] == player:
-                    continue
-                length = 0
-                r, c = row, col
-                while board.in_bounds(r, c) and cells[r * size + c] == player:
-                    length += 1
-                    r += dr
-                    c += dc
-                open_ends = 0
-                if board.in_bounds(pr, pc) and cells[pr * size + pc] == EMPTY:
-                    open_ends += 1
-                if board.in_bounds(r, c) and cells[r * size + c] == EMPTY:
-                    open_ends += 1
-                total += _run_score(length, open_ends)
-    return total
-
-
-def _run_score(length: int, open_ends: int) -> int:
-    if length >= 5:
-        return FIVE
-    if open_ends == 0:
-        return 0
-    if length == 4:
-        return OPEN_FOUR if open_ends == 2 else CLOSED_FOUR
-    if length == 3:
-        return OPEN_THREE if open_ends == 2 else CLOSED_THREE
-    if length == 2:
-        return OPEN_TWO if open_ends == 2 else CLOSED_TWO
-    return 1 if open_ends == 2 else 0
-
-
-def _center(board: Board) -> int:
+@lru_cache(maxsize=None)
+def _center(size: int) -> np.ndarray:
     """A small nudge toward the middle, so equal shapes prefer the center."""
-    bonus = 0
-    size = board.size
     mid = size // 2
-    for row in range(size):
-        for col in range(size):
-            player = board.cells[row * size + col]
-            if player == EMPTY:
-                continue
-            weight = (size - 1) - (abs(row - mid) + abs(col - mid))
-            bonus += weight if player == BLACK else -weight
-    return bonus
+    return np.array(
+        [(size - 1) - (abs(row - mid) + abs(col - mid)) for row in range(size) for col in range(size)],
+        dtype=np.int64,
+    )
