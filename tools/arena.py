@@ -5,7 +5,7 @@ played twice, once with each bot as Black, so neither side gets the easier
 color more often. Bots are named with the specs in `engine/players.py`.
 
     python tools/arena.py base learned --openings 50
-    python tools/arena.py base:depth=3 dir:path=/tmp/old,depth=2 --workers 6
+    python tools/arena.py book learned:path=models/delay.pt --openings 1
 
 Results are printed and saved to results/<date>-<a>-vs-<b>.json.
 """

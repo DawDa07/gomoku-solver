@@ -29,6 +29,43 @@ def _net():
     return _NET
 
 
+DELAY = CHECKPOINT.with_name("delay.pt")
+BEST = CHECKPOINT.with_name("best.pt")
+_DELAY: torch.nn.Module | None = None
+_DELAY_TRIED = False
+
+
+def _delay_net():
+    """The defender trained to stretch games, or the self-play net if that file is absent."""
+    global _DELAY, _DELAY_TRIED
+    if not _DELAY_TRIED:
+        _DELAY = load_checkpoint(DEVICE, DELAY)
+        if _DELAY is None:
+            _DELAY = load_checkpoint(DEVICE, BEST)
+        _DELAY_TRIED = True
+    return _DELAY
+
+
+def delay_move(board: Board, side: int) -> SearchResult | None:
+    """Threat checks, then the delay network. Used when the bot is White, and off-book in Analyze."""
+    net = _delay_net()
+    if net is None:
+        result = best_move(board, side)
+        if result is None:
+            return None
+        return SearchResult(
+            result.row,
+            result.col,
+            result.score,
+            result.line,
+            "No delay checkpoint, so the base bot played. " + result.reason,
+        )
+    if board.winner or not board.legal_moves():
+        return None
+    row, col, reason, value = select_action(net, board, side, temperature=0.0)
+    return SearchResult(row, col, int(round(value * 100)), [(row, col)], reason)
+
+
 def learned_move(board: Board, side: int) -> SearchResult | None:
     net = _net()
     if net is None:

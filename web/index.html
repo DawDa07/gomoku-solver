@@ -11,7 +11,7 @@
   <div class="wrap">
     <header>
       <h1>Gomoku</h1>
-      <p>Play the self-play bot, or set up a position and ask for the best next move.</p>
+      <p>Play a solved Black, or a White trained to make that win take as long as it can. Analyze uses the book when the position is in it.</p>
     </header>
     <div class="layout">
       <div class="board-column">
@@ -36,7 +36,7 @@
             <button type="button" id="play-black" aria-pressed="true"><i class="mini black"></i>Black</button>
             <button type="button" id="play-white" aria-pressed="false"><i class="mini white"></i>White</button>
           </div>
-          <p class="hint">Choosing a color starts a new game. Black opens.</p>
+          <p class="hint">Choosing a color starts a new game. Black opens. If you take White, the bot plays the solved win. If you take Black, the bot defends.</p>
         </section>
 
         <section id="analyze-panel" hidden>
@@ -50,7 +50,7 @@
             <button type="button" id="side-black" aria-pressed="true"><i class="mini black"></i>Black</button>
             <button type="button" id="side-white" aria-pressed="false"><i class="mini white"></i>White</button>
           </div>
-          <p class="hint">Clicks add the color you are placing. They do not change whose turn it is.</p>
+          <p class="hint">Clicks add the color you are placing. They do not change whose turn it is. Best move follows the book when this position is in it.</p>
           <button type="button" class="primary" id="find">Best move</button>
         </section>
 

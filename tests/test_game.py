@@ -1,4 +1,5 @@
 from engine.board import BLACK, WHITE
+from engine.book import solver_running
 from server.game import Game
 
 
@@ -8,6 +9,22 @@ def test_white_lets_the_bot_open_at_the_center():
     assert game.board.get(7, 7) == BLACK
     assert game.side_to_move == WHITE
     assert game.board.history[-1][2] == BLACK
+    assert "book" in game.last_bot_reason.lower()
+    assert not solver_running()
+
+
+def test_analyze_on_the_opening_uses_the_book():
+    game = Game()
+    game.new("analyze", BLACK)
+    game.analyze()
+    assert (game.suggestion["row"], game.suggestion["col"]) == (7, 7)
+    assert "book" in game.suggestion["reason"].lower()
+    game.human_move(7, 7, BLACK)
+    game.set_side(WHITE)
+    game.analyze()
+    assert (game.suggestion["row"], game.suggestion["col"]) in {(6, 7), (6, 8)}
+    assert "longest delay" in game.suggestion["reason"].lower()
+    assert not solver_running()
 
 
 def test_play_undo_takes_back_the_whole_exchange():

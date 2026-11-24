@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 from engine.board import BLACK, EMPTY, WHITE, Board, opponent, square_name
-from engine.search import best_move
 
 MODES = ("play", "analyze")
-SELFPLAY_PLAYOUTS = 200
 
 
 class Game:
@@ -158,7 +156,24 @@ class Game:
             self.side_to_move = opponent(self.side_to_move)
 
     def _choose_move(self):
-        return _selfplay_move(self.board, self.side_to_move)
+        """Black plays the solved line. White plays the delay network. Analyze prefers the book."""
+        from engine.book import lookup, prove
+        from engine.learned import delay_move
+
+        side = self.side_to_move
+        # In Play, White is the trained defender and does not consult the book.
+        if self.mode == "play" and self.human_side == BLACK:
+            return delay_move(self.board, side)
+        found = lookup(self.board, side)
+        if found.move is not None:
+            return found.move
+        # A leaf is still a book position: the distance is stored, the move is proved.
+        # When the bot is Black, a position off the tree is proved the same way.
+        if self.mode == "play" or found.kind == "leaf":
+            proved = prove(self.board, side)
+            if proved is not None:
+                return proved
+        return delay_move(self.board, side)
 
     def _place(self, row: int, col: int, player: int) -> None:
         if not self.board.in_bounds(row, col):
@@ -178,28 +193,6 @@ class Game:
     def _check_player(player: int) -> None:
         if player not in (BLACK, WHITE):
             raise ValueError("Choose black or white.")
-
-
-_SELFPLAY = None
-
-
-def _selfplay_move(board: Board, side: int):
-    """Tree search with models/best.pt, or the base bot if self-play has not run yet."""
-    global _SELFPLAY
-    from engine.mcts import MCTS, mcts_move
-    from engine.net import load_checkpoint
-    from selfplay import BEST
-
-    if _SELFPLAY is None:
-        import torch
-
-        net = load_checkpoint(torch.device("cpu"), BEST)
-        _SELFPLAY = MCTS(net, torch.device("cpu")) if net is not None else False
-    if _SELFPLAY is False:
-        return best_move(board, side)
-    if board.winner or not board.legal_moves():
-        return None
-    return mcts_move(_SELFPLAY, board, side, SELFPLAY_PLAYOUTS)
 
 
 def _name(player: int) -> str:

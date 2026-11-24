@@ -10,6 +10,7 @@ command line:
     learned:path=models/best.pt
     mcts:sims=200             network-guided tree search, models/best.pt
     random                    any move near the stones
+    book                      the solved rv2 line: the move book, then its threat proof
     git:rev=44622f0           the base bot from an older commit, in a subprocess
     dir:path=/tmp/engine-copy the base bot from a copied `engine/` folder
 """
@@ -110,6 +111,23 @@ class RandomPlayer:
         pass
 
 
+class BookPlayer:
+    """Black's solved strategy: the rv2 book, then the threat proof when a node has no move."""
+
+    def __init__(self, name: str = "book"):
+        self.name = name
+
+    def move(self, board: Board, side: int) -> SearchResult | None:
+        from engine.book import solved_move
+
+        return solved_move(board, side)
+
+    def close(self) -> None:
+        from engine.book import close_solver
+
+        close_solver()
+
+
 class ExternalPlayer:
     """The base bot from another copy of `engine/`, run in its own process.
 
@@ -187,6 +205,8 @@ def make_player(spec: str) -> Player:
         return LearnedPlayer(ROOT / options.get("path", "models/learned.pt"), name=spec)
     if kind == "random":
         return RandomPlayer(int(options.get("seed", 0)), name=spec)
+    if kind == "book":
+        return BookPlayer(name=spec)
     if kind == "git":
         return ExternalPlayer(checkout(options["rev"]), time_option(), depth, name=spec)
     if kind == "dir":
