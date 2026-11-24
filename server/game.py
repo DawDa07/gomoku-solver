@@ -6,7 +6,8 @@ from engine.board import BLACK, EMPTY, WHITE, Board, opponent, square_name
 from engine.search import best_move
 
 MODES = ("play", "analyze")
-ENGINES = ("base", "learned")
+ENGINES = ("base", "learned", "selfplay")
+SELFPLAY_PLAYOUTS = 200
 
 
 class Game:
@@ -34,7 +35,7 @@ class Game:
 
     def set_engine(self, engine: str) -> None:
         if engine not in ENGINES:
-            raise ValueError("Opponent must be base or learned.")
+            raise ValueError("Opponent must be base, learned or selfplay.")
         self.engine = engine
         self.suggestion = None
 
@@ -164,6 +165,8 @@ class Game:
             self.side_to_move = opponent(self.side_to_move)
 
     def _choose_move(self):
+        if self.engine == "selfplay":
+            return _selfplay_move(self.board, self.side_to_move)
         if self.engine == "learned":
             from engine.learned import learned_move
 
@@ -188,6 +191,28 @@ class Game:
     def _check_player(player: int) -> None:
         if player not in (BLACK, WHITE):
             raise ValueError("Choose black or white.")
+
+
+_SELFPLAY = None
+
+
+def _selfplay_move(board: Board, side: int):
+    """Tree search with models/best.pt, or the base bot if self-play has not run yet."""
+    global _SELFPLAY
+    from engine.mcts import MCTS, mcts_move
+    from engine.net import load_checkpoint
+    from selfplay import BEST
+
+    if _SELFPLAY is None:
+        import torch
+
+        net = load_checkpoint(torch.device("cpu"), BEST)
+        _SELFPLAY = MCTS(net, torch.device("cpu")) if net is not None else False
+    if _SELFPLAY is False:
+        return best_move(board, side)
+    if board.winner or not board.legal_moves():
+        return None
+    return mcts_move(_SELFPLAY, board, side, SELFPLAY_PLAYOUTS)
 
 
 def _name(player: int) -> str:

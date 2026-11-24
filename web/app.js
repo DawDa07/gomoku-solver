@@ -33,6 +33,7 @@ document.querySelector("#mode-analyze").addEventListener("click", () => {
 });
 document.querySelector("#engine-base").addEventListener("click", () => chooseEngine("base"));
 document.querySelector("#engine-learned").addEventListener("click", () => chooseEngine("learned"));
+document.querySelector("#engine-selfplay").addEventListener("click", () => chooseEngine("selfplay"));
 document.querySelector("#play-black").addEventListener("click", () => chooseColor(BLACK));
 document.querySelector("#play-white").addEventListener("click", () => chooseColor(WHITE));
 document.querySelector("#paint-black").addEventListener("click", () => setPaint(BLACK));
@@ -128,8 +129,9 @@ function render() {
   document.querySelector("#paint-white").setAttribute("aria-pressed", String(paint === WHITE));
   document.querySelector("#side-black").setAttribute("aria-pressed", String(state.side_to_move === BLACK));
   document.querySelector("#side-white").setAttribute("aria-pressed", String(state.side_to_move === WHITE));
-  document.querySelector("#engine-base").setAttribute("aria-pressed", String(state.engine !== "learned"));
+  document.querySelector("#engine-base").setAttribute("aria-pressed", String(state.engine === "base"));
   document.querySelector("#engine-learned").setAttribute("aria-pressed", String(state.engine === "learned"));
+  document.querySelector("#engine-selfplay").setAttribute("aria-pressed", String(state.engine === "selfplay"));
 
   const botTurn = play && !state.winner && !state.draw && state.side_to_move !== state.human_side;
   const botButton = document.querySelector("#bot");

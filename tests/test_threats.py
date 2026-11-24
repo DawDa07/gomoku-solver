@@ -1,6 +1,8 @@
+import time
+
 from engine.board import BLACK, WHITE, Board
 from engine.search import best_move
-from engine.threats import open_four_moves, scan, vcf
+from engine.threats import fork_moves, open_four_moves, scan, vcf, vct, vct_moves
 
 
 def _stones(board: Board, player: int, squares) -> None:
@@ -80,6 +82,54 @@ def test_finds_a_four_three():
     assert result is not None
     assert (result.row, result.col) == (7, 7)
     assert "fours" in result.reason.lower()
+
+
+def _chain_position() -> Board:
+    """Black has no four and no double threat yet, but threes lead to one."""
+    board = Board()
+    _stones(board, BLACK, [(7, 6), (7, 7), (5, 8), (6, 10), (6, 11)])
+    _stones(board, WHITE, [(0, 0), (14, 14), (0, 14), (14, 0), (2, 2)])
+    return board
+
+
+def test_finds_a_chain_of_threes():
+    board = _chain_position()
+    before = list(board.cells)
+    assert vcf(board, BLACK) is None
+    assert fork_moves(board, BLACK) == []
+    line = vct(board, BLACK)
+    assert line is not None
+    assert board.cells[line[0]] == 0
+    assert board.cells == before
+    assert line[0] in vct_moves(board, BLACK)
+
+
+def test_tactic_plays_the_chain_of_threes():
+    board = _chain_position()
+    result = best_move(board, BLACK, time_limit=None, max_depth=1)
+    assert result is not None
+    assert "threes and fours" in result.reason
+    assert result.row * board.size + result.col in vct_moves(board, BLACK)
+
+
+def test_tactic_plays_the_chain_of_threes():
+    board = _chain_position()
+    result = best_move(board, BLACK, time_limit=None, max_depth=1)
+    assert result is not None
+    assert "threes and fours" in result.reason
+    assert result.row * board.size + result.col in vct_moves(board, BLACK)
+
+
+def test_no_chain_from_two_stones():
+    board = Board()
+    _stones(board, BLACK, [(7, 7), (7, 8)])
+    _stones(board, WHITE, [(6, 7), (0, 0)])
+    assert vct(board, BLACK) is None
+
+
+def test_chain_search_stops_at_the_deadline():
+    board = _chain_position()
+    assert vct(board, WHITE, deadline=time.perf_counter() - 1) is None
 
 
 def test_scan_leaves_the_board_unchanged():

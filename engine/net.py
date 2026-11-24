@@ -58,15 +58,10 @@ class _Block(nn.Module):
 def encode(board: Board, side: int) -> np.ndarray:
     """Three planes, from the side about to move: own stones, opponent, ones."""
     size = board.size
-    planes = np.zeros((3, size, size), np.float32)
-    other = opponent(side)
-    for row in range(size):
-        for col in range(size):
-            stone = board.get(row, col)
-            if stone == side:
-                planes[0, row, col] = 1.0
-            elif stone == other:
-                planes[1, row, col] = 1.0
+    cells = np.asarray(board.cells, dtype=np.int8).reshape(size, size)
+    planes = np.empty((3, size, size), np.float32)
+    planes[0] = cells == side
+    planes[1] = cells == opponent(side)
     planes[2] = 1.0
     return planes
 

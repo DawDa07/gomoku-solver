@@ -11,7 +11,7 @@
   <div class="wrap">
     <header>
       <h1>Gomoku</h1>
-      <p>Play the search bot or the learned bot, or set up a position and ask for the best next move.</p>
+      <p>Play the search bot, the learned bot or the self-play bot, or set up a position and ask for the best next move.</p>
     </header>
     <div class="layout">
       <div class="board-column">
@@ -35,8 +35,9 @@
           <div class="segment" role="group" aria-label="Opponent">
             <button type="button" id="engine-base" aria-pressed="true">Base</button>
             <button type="button" id="engine-learned" aria-pressed="false">Learned</button>
+            <button type="button" id="engine-selfplay" aria-pressed="false">Self-play</button>
           </div>
-          <p class="hint">Base is the search. Learned trained against that search on a 9×9 board, then against itself, and plays here on 15×15. Both take a win and block a loss immediately.</p>
+          <p class="hint">Base is the search. Learned trained against that search on a 9×9 board, then against itself, and plays here on 15×15. Self-play trained on its own tree search and searches 200 playouts per move. All three take a win and block a loss immediately.</p>
         </section>
 
         <section id="play-panel">

@@ -1,12 +1,14 @@
 """Threat tactics first, then a time-limited alpha-beta search.
 
 `find_tactic` settles positions decided by threats: wins, blocks, open fours,
-forced fours, double threats, and open threes that must be stopped. When it
-allows several safe replies, alpha-beta chooses among only those.
+forced fours, chains of threes, double threats, and open threes that must be
+stopped. When it allows several safe replies, alpha-beta chooses among only
+those.
 """
 
 from __future__ import annotations
 
+import math
 import time
 from dataclasses import dataclass
 
@@ -16,6 +18,10 @@ from engine.tactics import find_tactic
 
 MAX_DEPTH = 4
 DEFAULT_TIME_LIMIT = 1.0
+# Share of the move time the threat checks may use before alpha-beta.
+TACTIC_SHARE = 0.4
+# Stopping the opponent's chain of threes may use more, since missing it loses.
+DEFENSE_SHARE = 0.85
 _INF = WIN_SCORE + MAX_DEPTH + 1
 
 
@@ -35,10 +41,13 @@ class _Timeout(Exception):
 def best_move(
     board: Board,
     side_to_move: int,
-    time_limit: float = DEFAULT_TIME_LIMIT,
+    time_limit: float | None = DEFAULT_TIME_LIMIT,
     max_depth: int = MAX_DEPTH,
 ) -> SearchResult | None:
     """Return the best move for `side_to_move`, or None when no move exists.
+
+    With `time_limit=None` the search runs every depth up to `max_depth`, so
+    the same position always gives the same move.
 
     `score` is from that side's point of view: positive is good for them.
     `line` is the principal variation, starting with the chosen move.
@@ -47,8 +56,15 @@ def best_move(
     if board.winner or not candidates:
         return None
 
-    deadline = time.perf_counter() + time_limit
-    tactic = find_tactic(board, side_to_move)
+    started = time.perf_counter()
+    if time_limit is None:
+        deadline = math.inf
+        tactic_deadline = defense_deadline = None
+    else:
+        deadline = started + time_limit
+        tactic_deadline = started + TACTIC_SHARE * time_limit
+        defense_deadline = started + DEFENSE_SHARE * time_limit
+    tactic = find_tactic(board, side_to_move, tactic_deadline, defense_deadline)
     if tactic is not None and len(tactic.moves) == 1:
         row, col = tactic.moves[0]
         line = list(tactic.line) or [(row, col)]
