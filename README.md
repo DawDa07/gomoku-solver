@@ -1,6 +1,6 @@
 # Gomoku solver
 
-Play freestyle Gomoku in the browser. Black follows a solved winning line. White is a network trained to make that win take as long as it can. Analyze uses the book when the position is in it.
+Play freestyle Gomoku in the browser. Black follows a solved winning line. White takes a win when it sees one, stalls on the book only while that line is still a proved loss, and otherwise plays the attack network. Analyze uses the book when the position is in it.
 
 The board is 15×15. Five or more stones in a row wins. There are no forbidden moves, and Black plays first.
 
@@ -25,20 +25,7 @@ Tests:
 pytest
 ```
 
-Train the learned bot (about eight minutes on a laptop). It continues from the saved weights; `--fresh` starts over:
-
-```bash
-python train.py
-python train.py --fresh
-```
-
-Train White to delay the solved win. This fine-tunes `models/best.pt` on the book's longest White replies and saves `models/delay.pt`.
-
-```bash
-python tools/train_delay.py
-```
-
-Train the attack network White uses once a position leaves the book. It plays against the base bot and against the solved line with occasional random Black moves, and saves `models/white.pt`. It then reports White's wins against the base bot, and the length of solved Black against this White from the center.
+Train the attack network White uses once a position leaves the book. It starts from `models/best.pt`, plays against the base bot and against the solved line with occasional random Black moves, and saves `models/white.pt`. It then reports White's wins against the base bot, and the length of solved Black against this White from the center.
 
 ```bash
 python tools/train_white.py
@@ -76,7 +63,7 @@ The base bot checks threats first, in this order ([`engine/tactics.py`](engine/t
 
 If a check leaves one move, that move is played. If it leaves several safe blocks, alpha-beta chooses among them. In a quiet position, alpha-beta runs for about a second over empty cells within two intersections of a stone, scored by the windows: more stones of one color in an open window is worth more.
 
-The learned bot is a policy and value network. The input is three planes (own stones, opponent stones, and a constant), from the side about to move. Residual convolutions see the whole board, so weights trained on 9×9 still play on 15×15. It uses the same threat checks; the network chooses quiet moves, and chooses among safe blocks. In training, the base names the move to imitate in each position, and the value target is who won the game. Games start from random stones near the center, then the network plays the base and plays itself while the base keeps labeling the moves.
+The attack network is a policy and value network in `models/white.pt`, with `models/best.pt` as the fallback. The input is three planes (own stones, opponent stones, and a constant), from the side about to move. Residual convolutions see the whole board. It uses the same threat checks; the network chooses quiet moves, and chooses among safe blocks.
 
 15×15 freestyle Gomoku is a known win for Black. The book in `vendor/rv2/gomoku.json` is one such line, folded into eight symmetries after White's first move. It opens at the center. White's replies are stored with a remaining-move count; `h9` and `i9` (our H7 and I7) are the two first replies that reach 35 plies. A node that stores only a number is finished by the threat proof in `vendor/rv2/solve.js`.
 

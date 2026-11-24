@@ -16,7 +16,6 @@ class Game:
         self.side_to_move = BLACK
         self.suggestion: dict | None = None
         self.last_bot_reason = ""
-        self.engine = "selfplay"
 
     def new(self, mode: str = "play", human_side: int = BLACK) -> None:
         self._check_mode(mode)
@@ -121,7 +120,6 @@ class Game:
             "draw": self.board.is_full() and not self.board.winner,
             "last_move": last,
             "suggestion": self.suggestion,
-            "engine": self.engine,
             "status": self.status(),
         }
 

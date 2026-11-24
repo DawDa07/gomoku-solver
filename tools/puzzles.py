@@ -41,8 +41,6 @@ CATEGORIES = (
     "block-three",
     "chain-of-fours",
     "four-three",
-    "chain-of-threes",
-    "defend-chain",
 )
 QUICK = CATEGORIES[:5]
 

@@ -43,7 +43,8 @@ from engine.net import (  # noqa: E402
 )
 from engine.players import make_player  # noqa: E402
 from engine.search import SearchResult, best_move  # noqa: E402
-from selfplay import REPLAY, _symmetry  # noqa: E402
+
+REPLAY = ROOT / "results" / "replay.npz"
 
 BATCH = 64
 EPOCHS = 3
@@ -164,6 +165,18 @@ def _play(net, black_move, explore: bool):
     return samples
 
 
+def _symmetry(planes: np.ndarray, policy: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
+    """One of the eight turns and mirrors of a board and its policy target."""
+    size = planes.shape[-1]
+    grid = policy.reshape(size, size)
+    planes = np.rot90(planes, k % 4, axes=(1, 2))
+    grid = np.rot90(grid, k % 4)
+    if k >= 4:
+        planes = planes[:, :, ::-1]
+        grid = grid[:, ::-1]
+    return np.ascontiguousarray(planes), np.ascontiguousarray(grid).reshape(-1)
+
+
 def replay_batch(rng: np.random.Generator) -> list[tuple[np.ndarray, np.ndarray, float, float]]:
     if not REPLAY.is_file():
         return []
@@ -222,9 +235,24 @@ def step(net, opt, batch) -> tuple[float, int, int]:
     return float(loss.item()), int((picked > 0).sum().item()), int(copied.sum())
 
 
+def _play_out(black, white, opening: list[tuple[int, int]]):
+    board = Board()
+    side = BLACK
+    for row, col in opening:
+        board.place(row, col, side)
+        side = WHITE if side == BLACK else BLACK
+    while not board.winner and not board.is_full():
+        player = black if side == BLACK else white
+        result = player.move(board, side)
+        if result is None:
+            break
+        board.place(result.row, result.col, side)
+        side = WHITE if side == BLACK else BLACK
+    return board
+
+
 def measure() -> tuple[int, int, int, int]:
     """Wins against the base bot, games played, book-game length, book-game winner."""
-    from tools.arena import play_game
 
     class _White:
         name = "white"
@@ -242,20 +270,20 @@ def measure() -> tuple[int, int, int, int]:
         for index in range(games):
             black = make_player("base:time=0.1,depth=2")
             try:
-                game = play_game(black, white, [], 15, index)
+                game = _play_out(black, white, [])
             finally:
                 black.close()
             if game.winner == WHITE:
                 wins += 1
-            print(f"  base match {index + 1}/{games}: winner {game.winner}, {len(game.moves)} plies", flush=True)
+            print(f"  base match {index + 1}/{games}: winner {game.winner}, {len(game.history)} plies", flush=True)
         book = make_player("book")
         try:
-            solved = play_game(book, white, [(7, 7)], 15, 0)
+            solved = _play_out(book, white, [(7, 7)])
         finally:
             book.close()
     finally:
         white.close()
-    return wins, games, len(solved.moves), solved.winner
+    return wins, games, len(solved.history), solved.winner
 
 
 if __name__ == "__main__":

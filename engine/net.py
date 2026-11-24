@@ -16,7 +16,7 @@ from engine.board import Board, opponent
 
 CHANNELS = 48
 DEPTH = 8
-CHECKPOINT = Path(__file__).resolve().parents[1] / "models" / "learned.pt"
+CHECKPOINT = Path(__file__).resolve().parents[1] / "models" / "best.pt"
 
 
 class PolicyValueNet(nn.Module):
