@@ -19,7 +19,8 @@ Each iteration:
 
 The first run copies models/learned.pt to models/best.pt. The candidate
 keeps training across iterations in models/candidate.pt, whether or not it
-passes the gate. The log goes to results/selfplay.jsonl.
+passes the gate. The log goes to results/selfplay.jsonl, and the positions
+go to results/replay.npz so the next run continues from them.
 """
 
 from __future__ import annotations
@@ -47,6 +48,7 @@ MODELS = ROOT / "models"
 BEST = MODELS / "best.pt"
 CANDIDATE = MODELS / "candidate.pt"
 LOG = ROOT / "results" / "selfplay.jsonl"
+REPLAY = ROOT / "results" / "replay.npz"
 
 NOISE = 0.25
 GATE_SCORE = 0.55
@@ -172,6 +174,39 @@ def train(
     return policy_total / steps, value_total / steps
 
 
+def load_replay(path: Path, size: int, limit: int) -> deque:
+    """Positions saved by an earlier run on this board size, newest last."""
+    buffer: deque = deque(maxlen=limit)
+    if not path.is_file():
+        return buffer
+    saved = np.load(path)
+    if int(saved["size"]) != size:
+        print(
+            f"Replay buffer is for {int(saved['size'])}×{int(saved['size'])}, "
+            f"this run is {size}×{size}. Starting empty.",
+            flush=True,
+        )
+        return buffer
+    planes, policies, values = saved["planes"], saved["policies"], saved["values"]
+    start = max(0, len(values) - limit)
+    for index in range(start, len(values)):
+        buffer.append((planes[index], policies[index], float(values[index])))
+    return buffer
+
+
+def save_replay(path: Path, buffer: deque, size: int) -> None:
+    if not buffer:
+        return
+    path.parent.mkdir(exist_ok=True)
+    np.savez_compressed(
+        path,
+        planes=np.stack([item[0] for item in buffer]),
+        policies=np.stack([item[1] for item in buffer]),
+        values=np.asarray([item[2] for item in buffer], dtype=np.float32),
+        size=np.int32(size),
+    )
+
+
 def gate(size: int, simulations: int, openings: int, workers: int) -> dict:
     from tools.arena import run_match
 
@@ -209,12 +244,15 @@ def main() -> None:
     assert net is not None
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
     rng = np.random.default_rng(args.seed)
-    buffer: deque = deque(maxlen=args.buffer)
+    buffer = load_replay(REPLAY, args.size, args.buffer)
+    if buffer:
+        print(f"Loaded {len(buffer)} positions from {REPLAY.relative_to(ROOT)}.", flush=True)
 
     for iteration in range(1, args.iterations + 1):
         started = time.perf_counter()
         samples, outcomes = generate(BEST, args.size, args.sims, args.games, args.workers, args.seed + iteration)
         buffer.extend(samples)
+        save_replay(REPLAY, buffer, args.size)
         played = time.perf_counter() - started
         black = sum(winner == BLACK for winner, _ in outcomes)
         draws = sum(winner == 0 for winner, _ in outcomes)

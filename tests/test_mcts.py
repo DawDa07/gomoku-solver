@@ -45,6 +45,31 @@ def test_search_finds_the_open_four_threat():
     assert (result.row, result.col) in {(4, 2), (4, 6)}
 
 
+def _open_three() -> Board:
+    """Black has an open three. White, to move, can close it or leave the chain."""
+    board = Board(size=9)
+    for col in (3, 4, 5):
+        board.place(4, col, BLACK)
+    board.place(0, 0, WHITE)
+    board.place(8, 8, WHITE)
+    return board
+
+
+def test_root_screen_refuses_a_move_that_gives_away_a_chain():
+    board = _open_three()
+    losing = 1 * 9 + 1
+    safe = 4 * 9 + 2
+    moves, visits, value = _search().search(board, WHITE, 8, root_moves=[losing, safe])
+    assert int(moves[int(visits.argmax())]) == safe
+    assert value != -1.0
+    assert board.get(1, 1) == 0 and board.get(4, 2) == 0
+
+
+def test_root_screen_reports_a_loss_when_every_move_loses():
+    _, _, value = _search().search(_open_three(), WHITE, 8, root_moves=[1 * 9 + 1])
+    assert value == -1.0
+
+
 def test_forced_block_inside_the_tree():
     """After any quiet White move, Black's open four wins, so the search sees every quiet move lose."""
     board = Board(size=9)
@@ -53,6 +78,7 @@ def test_forced_block_inside_the_tree():
     board.place(0, 0, WHITE)
     board.place(8, 8, WHITE)
     board.place(0, 8, BLACK)
-    moves, visits, _ = _search().search(board, WHITE, 400)
+    roots = [row * board.size + col for row, col in board.legal_moves()]
+    moves, visits, _ = _search().search(board, WHITE, 64, root_moves=roots)
     best = int(moves[visits.argmax()])
     assert divmod(best, 9) in {(4, 1), (4, 5)}

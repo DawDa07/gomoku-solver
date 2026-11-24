@@ -39,10 +39,6 @@ class Mode(BaseModel):
     mode: str
 
 
-class Engine(BaseModel):
-    engine: str
-
-
 def _run(action) -> dict:
     with lock:
         try:
@@ -91,11 +87,6 @@ def side(body: Side) -> dict:
 @app.post("/api/mode")
 def mode(body: Mode) -> dict:
     return _run(lambda: game.set_mode(body.mode))
-
-
-@app.post("/api/engine")
-def engine(body: Engine) -> dict:
-    return _run(lambda: game.set_engine(body.engine))
 
 
 @app.post("/api/bot")

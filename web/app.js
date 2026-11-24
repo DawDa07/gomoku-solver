@@ -31,9 +31,6 @@ document.querySelector("#mode-play").addEventListener("click", () => {
 document.querySelector("#mode-analyze").addEventListener("click", () => {
   if (state && state.mode !== "analyze") call("/api/mode", { mode: "analyze" });
 });
-document.querySelector("#engine-base").addEventListener("click", () => chooseEngine("base"));
-document.querySelector("#engine-learned").addEventListener("click", () => chooseEngine("learned"));
-document.querySelector("#engine-selfplay").addEventListener("click", () => chooseEngine("selfplay"));
 document.querySelector("#play-black").addEventListener("click", () => chooseColor(BLACK));
 document.querySelector("#play-white").addEventListener("click", () => chooseColor(WHITE));
 document.querySelector("#paint-black").addEventListener("click", () => setPaint(BLACK));
@@ -60,11 +57,6 @@ function chooseColor(side) {
   if (!state || busy) return;
   if (state.mode === "play" && state.human_side === side) return;
   call("/api/new", { mode: "play", human_side: side }, side === WHITE ? "Thinking…" : null);
-}
-
-function chooseEngine(engine) {
-  if (!state || busy || state.engine === engine) return;
-  call("/api/engine", { engine });
 }
 
 function setPaint(color) {
@@ -129,9 +121,6 @@ function render() {
   document.querySelector("#paint-white").setAttribute("aria-pressed", String(paint === WHITE));
   document.querySelector("#side-black").setAttribute("aria-pressed", String(state.side_to_move === BLACK));
   document.querySelector("#side-white").setAttribute("aria-pressed", String(state.side_to_move === WHITE));
-  document.querySelector("#engine-base").setAttribute("aria-pressed", String(state.engine === "base"));
-  document.querySelector("#engine-learned").setAttribute("aria-pressed", String(state.engine === "learned"));
-  document.querySelector("#engine-selfplay").setAttribute("aria-pressed", String(state.engine === "selfplay"));
 
   const botTurn = play && !state.winner && !state.draw && state.side_to_move !== state.human_side;
   const botButton = document.querySelector("#bot");

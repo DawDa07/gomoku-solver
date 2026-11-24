@@ -6,7 +6,6 @@ from engine.board import BLACK, EMPTY, WHITE, Board, opponent, square_name
 from engine.search import best_move
 
 MODES = ("play", "analyze")
-ENGINES = ("base", "learned", "selfplay")
 SELFPLAY_PLAYOUTS = 200
 
 
@@ -19,7 +18,7 @@ class Game:
         self.side_to_move = BLACK
         self.suggestion: dict | None = None
         self.last_bot_reason = ""
-        self.engine = "base"
+        self.engine = "selfplay"
 
     def new(self, mode: str = "play", human_side: int = BLACK) -> None:
         self._check_mode(mode)
@@ -32,12 +31,6 @@ class Game:
         self.last_bot_reason = ""
         if mode == "play" and human_side == WHITE:
             self._play_bot()
-
-    def set_engine(self, engine: str) -> None:
-        if engine not in ENGINES:
-            raise ValueError("Opponent must be base, learned or selfplay.")
-        self.engine = engine
-        self.suggestion = None
 
     def set_mode(self, mode: str) -> None:
         self._check_mode(mode)
@@ -165,13 +158,7 @@ class Game:
             self.side_to_move = opponent(self.side_to_move)
 
     def _choose_move(self):
-        if self.engine == "selfplay":
-            return _selfplay_move(self.board, self.side_to_move)
-        if self.engine == "learned":
-            from engine.learned import learned_move
-
-            return learned_move(self.board, self.side_to_move)
-        return best_move(self.board, self.side_to_move, time_limit=self.time_limit)
+        return _selfplay_move(self.board, self.side_to_move)
 
     def _place(self, row: int, col: int, player: int) -> None:
         if not self.board.in_bounds(row, col):

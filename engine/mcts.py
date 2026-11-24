@@ -11,7 +11,9 @@ carries a "virtual loss", so the other playouts in the batch look elsewhere.
 
 Cheap threat rules apply inside the tree: a side with a win square takes it,
 a side facing a four blocks it, and a side with an open four has won. At the
-root, `find_tactic` settles forced positions before any search.
+root, `find_tactic` settles forced positions before any search. The moves the
+network likes are also checked once, so a quiet move that hands the opponent
+a chain of threes is not played.
 """
 
 from __future__ import annotations
@@ -26,11 +28,14 @@ from engine.board import EMPTY, Board, opponent, square_name
 from engine.net import encode, load_checkpoint
 from engine.search import SearchResult
 from engine.tactics import find_tactic
-from engine.threats import open_four_moves, scan
+from engine.threats import open_four_moves, scan, vct
 
 C_PUCT = 1.5
 BATCH = 8
 VIRTUAL_LOSS = 1.0
+# Root moves checked, once, for handing the opponent a chain of threes.
+ROOT_SCREEN = 12
+ROOT_VCT_BUDGET = 40
 
 
 def pick_device() -> torch.device:
@@ -86,6 +91,58 @@ def _threat_rules(board: Board, side: int) -> tuple[float | None, list[int] | No
     return None, None
 
 
+def _screen_root(
+    board: Board,
+    side: int,
+    moves: list[int],
+    priors: np.ndarray,
+    narrowed: bool,
+) -> tuple[list[int], np.ndarray, bool]:
+    """Drop root moves that hand the opponent a chain of threes.
+
+    Checks every move when the tactic already narrowed the list, otherwise the
+    `ROOT_SCREEN` moves with the highest prior. Returns the moves to search,
+    their priors, and whether every checked move loses.
+    """
+    if narrowed or len(moves) <= ROOT_SCREEN:
+        indexes = list(range(len(moves)))
+    else:
+        indexes = [int(i) for i in np.argsort(-priors)[:ROOT_SCREEN]]
+    other = opponent(side)
+    safe: list[int] = []
+    losing: list[tuple[int, float, int]] = []
+    for index in indexes:
+        move = moves[index]
+        board.place(move // board.size, move % board.size, side)
+        try:
+            if board.winner == other:
+                line = [move]
+            elif board.winner == side:
+                line = None
+            else:
+                line = vct(board, other, budget=ROOT_VCT_BUDGET)
+        finally:
+            board.undo()
+        if line is None:
+            safe.append(index)
+        else:
+            # Shorter chain first, then the move the network already preferred.
+            losing.append((len(line), -float(priors[index]), index))
+    if not safe:
+        _, _, best = min(losing)
+        kept = [moves[i] for i in indexes]
+        ranked = np.zeros(len(kept))
+        ranked[indexes.index(best)] = 1.0
+        return kept, ranked, True
+    kept_priors = priors[safe].astype(np.float64)
+    total = kept_priors.sum()
+    if total <= 0:
+        kept_priors = np.full(len(safe), 1.0 / len(safe))
+    else:
+        kept_priors /= total
+    return [moves[i] for i in safe], kept_priors, False
+
+
 class MCTS:
     def __init__(self, net: torch.nn.Module, device: torch.device, batch: int = BATCH):
         self.net = net
@@ -126,6 +183,13 @@ class MCTS:
         if noise > 0:
             rng = rng or np.random.default_rng()
             priors = (1 - noise) * priors + noise * rng.dirichlet([0.3] * len(moves))
+        moves, priors, lost = _screen_root(
+            work, side, moves, priors, narrowed=root_moves is not None
+        )
+        if lost:
+            visits = np.zeros(len(moves))
+            visits[int(np.argmax(priors))] = max(simulations, 1)
+            return np.asarray(moves, dtype=np.int64), visits, -1.0
         root.expand(moves, priors)
         root_value = float(values[0])
 

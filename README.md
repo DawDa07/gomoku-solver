@@ -1,6 +1,6 @@
 # Gomoku solver
 
-Play freestyle Gomoku in the browser against either bot, or set up a position and ask for the best next move.
+Play freestyle Gomoku in the browser against the self-play bot, or set up a position and ask for the best next move.
 
 The board is 15×15. Five or more stones in a row wins. There are no forbidden moves, and Black plays first.
 
@@ -34,18 +34,15 @@ Restart the server after a retrain so it loads the new weights.
 
 ## Play
 
-Choose Black or White, and choose the opponent.
-
-- **Base** is a threat checker plus a search. It blocks open threes and broken threes, plays forced fours, and looks about a second ahead.
-- **Learned** is a small convolutional network. It trained by playing the base bot, then by playing itself. It uses the same threat checks, so wins, blocks, and forced sequences are not left to the network.
+Choose Black or White. The opponent is the self-play bot: a network trained on its own tree search, with 200 playouts per move. Threat checks still settle a forced win or block before the search.
 
 Black opens. A red dot marks the last stone. Undo takes back your move and the bot's reply. Reset starts over.
 
 ## Analyze
 
-Switch to Analyze to paint a position. Pick the color you are placing, then click intersections. Pick who is to move — that is separate from the color you are placing — and press Best move. The opponent switch chooses which bot answers.
+Switch to Analyze to paint a position. Pick the color you are placing, then click intersections. Pick who is to move — that is separate from the color you are placing — and press Best move. The same self-play bot answers.
 
-The suggested square is drawn as a faded stone with a green ring. For the base bot, later squares in the main line are green dots. The panel gives the reason. Undo removes one stone.
+The suggested square is drawn as a faded stone with a green ring. Later squares in the main line are green dots. The panel gives the reason. Undo removes one stone.
 
 ## How a move is chosen
 
