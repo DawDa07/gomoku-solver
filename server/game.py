@@ -156,14 +156,13 @@ class Game:
             self.side_to_move = opponent(self.side_to_move)
 
     def _choose_move(self):
-        """Black plays the solved line. White plays the delay network. Analyze prefers the book."""
+        """Black plays the solved line. White takes a win, then stalls, then attacks."""
         from engine.book import lookup, prove
-        from engine.learned import delay_move
+        from engine.learned import attack_move, white_move
 
         side = self.side_to_move
-        # In Play, White is the trained defender and does not consult the book.
         if self.mode == "play" and self.human_side == BLACK:
-            return delay_move(self.board, side)
+            return white_move(self.board, side)
         found = lookup(self.board, side)
         if found.move is not None:
             return found.move
@@ -173,7 +172,7 @@ class Game:
             proved = prove(self.board, side)
             if proved is not None:
                 return proved
-        return delay_move(self.board, side)
+        return attack_move(self.board, side)
 
     def _place(self, row: int, col: int, player: int) -> None:
         if not self.board.in_bounds(row, col):

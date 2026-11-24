@@ -36,7 +36,7 @@
             <button type="button" id="play-black" aria-pressed="true"><i class="mini black"></i>Black</button>
             <button type="button" id="play-white" aria-pressed="false"><i class="mini white"></i>White</button>
           </div>
-          <p class="hint">Choosing a color starts a new game. Black opens. If you take White, the bot plays the solved win. If you take Black, the bot defends.</p>
+          <p class="hint">Choosing a color starts a new game. Black opens. If you take White, the bot plays the solved win. If you take Black, the bot takes a win when it sees one, and stalls only while the solved line still holds.</p>
         </section>
 
         <section id="analyze-panel" hidden>
@@ -50,7 +50,7 @@
             <button type="button" id="side-black" aria-pressed="true"><i class="mini black"></i>Black</button>
             <button type="button" id="side-white" aria-pressed="false"><i class="mini white"></i>White</button>
           </div>
-          <p class="hint">Clicks add the color you are placing. They do not change whose turn it is. Best move follows the book when this position is in it.</p>
+          <p class="hint">Clicks add the color you are placing. They do not change whose turn it is. Best move follows the book when this position is in it, and the attack network otherwise.</p>
           <button type="button" class="primary" id="find">Best move</button>
         </section>
 

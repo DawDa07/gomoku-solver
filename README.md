@@ -32,23 +32,29 @@ python train.py
 python train.py --fresh
 ```
 
-Train White to delay the solved win. This fine-tunes `models/best.pt` on the book's longest White replies and saves `models/delay.pt`. It then plays the solved line as Black against that net from the center and prints the length in plies. The book line reaches 35.
+Train White to delay the solved win. This fine-tunes `models/best.pt` on the book's longest White replies and saves `models/delay.pt`.
 
 ```bash
 python tools/train_delay.py
+```
+
+Train the attack network White uses once a position leaves the book. It plays against the base bot and against the solved line with occasional random Black moves, and saves `models/white.pt`. It then reports White's wins against the base bot, and the length of solved Black against this White from the center.
+
+```bash
+python tools/train_white.py
 ```
 
 Restart the server after a retrain so it loads the new weights.
 
 ## Play
 
-Choose Black or White. If you take White, the bot plays the solved win: the rv2 move book, then its threat proof, then the network if the proof has no win. If you take Black, the bot plays the delay network. Threat checks still settle a forced win or block before that network chooses.
+Choose Black or White. If you take White, the bot plays the solved win: the rv2 move book, then its threat proof, then the attack network if the proof has no win. If you take Black, the bot plays White: a threat move first, then a short search when that search sees a win, then the book's longest delay while the position is still a proved loss, then the attack network.
 
 Black opens. A red dot marks the last stone. Undo takes back your move and the bot's reply. Reset starts over.
 
 ## Analyze
 
-Switch to Analyze to paint a position. Pick the color you are placing, then click intersections. Pick who is to move — that is separate from the color you are placing — and press Best move. If that sequence is in the book, the reply is the book's: Black's winning move, or the White reply with the most moves left. Otherwise the delay network answers.
+Switch to Analyze to paint a position. Pick the color you are placing, then click intersections. Pick who is to move — that is separate from the color you are placing — and press Best move. If that sequence is in the book, the reply is the book's: Black's winning move, or the White reply with the most moves left. Otherwise the attack network answers.
 
 The suggested square is drawn as a faded stone with a green ring. Later squares in the main line are green dots. The panel gives the reason. Undo removes one stone.
 
