@@ -1,49 +1,6 @@
 # Gomoku solver
 
-Play freestyle Gomoku in the browser. Black follows a solved winning line. White takes a win when it sees one, stalls on the book only while that line is still a proved loss, and otherwise plays the attack network. Analyze uses the book when the position is in it.
-
-The board is 15×15. Five or more stones in a row wins. There are no forbidden moves, and Black plays first.
-
-## Setup
-
-From this directory:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn server.app:app
-```
-
-Black's solved line also needs Node on `PATH`. The move book is in `vendor/rv2/`. When a book node stores only a distance, `vendor/rv2/solve.js` runs the threat proof. Without Node, those positions fall through to the network.
-
-Open http://127.0.0.1:8000.
-
-Tests:
-
-```bash
-pytest
-```
-
-Train the attack network White uses once a position leaves the book. It starts from `models/best.pt`, plays against the base bot and against the solved line with occasional random Black moves, and saves `models/white.pt`. It then reports White's wins against the base bot, and the length of solved Black against this White from the center.
-
-```bash
-python tools/train_white.py
-```
-
-Restart the server after a retrain so it loads the new weights.
-
-## Play
-
-Choose Black or White. If you take White, the bot plays the solved win: the rv2 move book, then its threat proof, then the attack network if the proof has no win. If you take Black, the bot plays White: a threat move first, then a short search when that search sees a win, then the book's longest delay while the position is still a proved loss, then the attack network.
-
-Black opens. A red dot marks the last stone. Undo takes back your move and the bot's reply. Reset starts over.
-
-## Analyze
-
-Switch to Analyze to paint a position. Pick the color you are placing, then click intersections. Pick who is to move — that is separate from the color you are placing — and press Best move. If that sequence is in the book, the reply is the book's: Black's winning move, or the White reply with the most moves left. Otherwise the attack network answers.
-
-The suggested square is drawn as a faded stone with a green ring. Later squares in the main line are green dots. The panel gives the reason. Undo removes one stone.
+Gomoku bot
 
 ## How a move is chosen
 
